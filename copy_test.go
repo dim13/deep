@@ -149,6 +149,23 @@ func TestCopyTime(t *testing.T) {
 	}
 }
 
+type cyclicNode struct {
+	Val  int
+	Next *cyclicNode
+}
+
+func TestCopyCyclic(t *testing.T) {
+	src := &cyclicNode{Val: 1}
+	src.Next = src
+	dst := Copy(src)
+	if dst == src {
+		t.Error("expected different pointers")
+	}
+	if dst.Next != dst {
+		t.Error("expected cycle preserved in copy")
+	}
+}
+
 type unexportedFields struct {
 	Pub  int
 	priv int

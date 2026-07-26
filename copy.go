@@ -15,11 +15,18 @@ func Equal[T any](x, y T) bool {
 func Copy[T any](src T) (dst T) {
 	dval := reflect.ValueOf(&dst)
 	sval := reflect.ValueOf(&src)
-	copyValue(dval.Elem(), sval.Elem())
+	c := copier{seen: make(map[uintptr]reflect.Value)}
+	c.copyValue(dval.Elem(), sval.Elem())
 	return dst
 }
 
-func copyValue(dst, src reflect.Value) {
+// copier tracks pointers already copied, by address, so cyclic data
+// structures terminate instead of recursing forever.
+type copier struct {
+	seen map[uintptr]reflect.Value
+}
+
+func (c copier) copyValue(dst, src reflect.Value) {
 	if !dst.CanSet() {
 		return
 	}
@@ -35,13 +42,13 @@ func copyValue(dst, src reflect.Value) {
 		}
 		nval := reflect.MakeSlice(src.Type(), src.Len(), src.Cap())
 		for i := range src.Len() {
-			copyValue(nval.Index(i), src.Index(i))
+			c.copyValue(nval.Index(i), src.Index(i))
 		}
 		dst.Set(nval)
 	case reflect.Array:
 		nval := reflect.New(src.Type()).Elem()
 		for i := range src.Len() {
-			copyValue(nval.Index(i), src.Index(i))
+			c.copyValue(nval.Index(i), src.Index(i))
 		}
 		dst.Set(nval)
 	case reflect.Interface:
@@ -49,14 +56,20 @@ func copyValue(dst, src reflect.Value) {
 			return
 		}
 		nval := reflect.New(src.Elem().Type()).Elem()
-		copyValue(nval, src.Elem())
+		c.copyValue(nval, src.Elem())
 		dst.Set(nval)
 	case reflect.Pointer:
 		if src.IsNil() {
 			return
 		}
+		addr := src.Pointer()
+		if nval, ok := c.seen[addr]; ok {
+			dst.Set(nval)
+			return
+		}
 		nval := reflect.New(src.Elem().Type())
-		copyValue(nval.Elem(), src.Elem())
+		c.seen[addr] = nval
+		c.copyValue(nval.Elem(), src.Elem())
 		dst.Set(nval)
 	case reflect.Struct:
 		nval := reflect.New(src.Type()).Elem()
@@ -67,7 +80,7 @@ func copyValue(dst, src reflect.Value) {
 				df = reflect.NewAt(df.Type(), unsafe.Pointer(df.UnsafeAddr())).Elem()
 				sf = reflect.NewAt(sf.Type(), unsafe.Pointer(sf.UnsafeAddr())).Elem()
 			}
-			copyValue(df, sf)
+			c.copyValue(df, sf)
 		}
 		dst.Set(nval)
 	case reflect.Map:
@@ -78,7 +91,7 @@ func copyValue(dst, src reflect.Value) {
 		for _, k := range src.MapKeys() {
 			sval := src.MapIndex(k)
 			dval := reflect.New(sval.Type()).Elem()
-			copyValue(dval, sval)
+			c.copyValue(dval, sval)
 			nval.SetMapIndex(k, dval)
 		}
 		dst.Set(nval)
