@@ -135,3 +135,16 @@ func TestCopyTime(t *testing.T) {
 		t.Errorf("got %v, want %v", dst, src)
 	}
 }
+
+type unexportedFields struct {
+	Pub  int
+	priv int
+}
+
+func TestCopyUnexportedFields(t *testing.T) {
+	src := unexportedFields{Pub: 1, priv: 2}
+	dst := Copy(src)
+	if !Equal(dst, src) {
+		t.Errorf("got %+v, want %+v", dst, src)
+	}
+}

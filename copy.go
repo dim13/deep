@@ -3,6 +3,7 @@ package deep
 import (
 	"reflect"
 	"time"
+	"unsafe"
 )
 
 // Equal deeply compares the arguments y and x.
@@ -54,7 +55,13 @@ func copyValue(dst, src reflect.Value) {
 	case reflect.Struct:
 		nval := reflect.New(src.Type()).Elem()
 		for i := range src.NumField() {
-			copyValue(nval.Field(i), src.Field(i))
+			df, sf := nval.Field(i), src.Field(i)
+			// Unexported field: bypass reflect's read-only flag via unsafe
+			if !df.CanSet() {
+				df = reflect.NewAt(df.Type(), unsafe.Pointer(df.UnsafeAddr())).Elem()
+				sf = reflect.NewAt(sf.Type(), unsafe.Pointer(sf.UnsafeAddr())).Elem()
+			}
+			copyValue(df, sf)
 		}
 		dst.Set(nval)
 	case reflect.Map:
