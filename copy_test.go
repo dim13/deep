@@ -108,6 +108,19 @@ func TestCopyArray(t *testing.T) {
 	}
 }
 
+func TestCopyArrayOfPointers(t *testing.T) {
+	a, b := 1, 2
+	src := [2]*int{&a, &b}
+	dst := Copy(src)
+	if !Equal(dst, src) {
+		t.Errorf("got %v, want %v", dst, src)
+	}
+	*src[0] = 100
+	if Equal(dst, src) {
+		t.Error("expected dst to be independent of src")
+	}
+}
+
 func TestCopyFunc(t *testing.T) {
 	src := func(x int) int { return x }
 	dst := Copy(src)

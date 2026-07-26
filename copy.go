@@ -38,6 +38,12 @@ func copyValue(dst, src reflect.Value) {
 			copyValue(nval.Index(i), src.Index(i))
 		}
 		dst.Set(nval)
+	case reflect.Array:
+		nval := reflect.New(src.Type()).Elem()
+		for i := range src.Len() {
+			copyValue(nval.Index(i), src.Index(i))
+		}
+		dst.Set(nval)
 	case reflect.Interface:
 		if src.IsNil() {
 			return
